@@ -78,11 +78,11 @@ Use these as the single source of truth for cross-team alignment:
 5. Screen Specification: `docs/05-screen-specification.md`
 
 Recommended reading order:
-1. `docs/01-development-plan.md`
-2. `docs/02-technical-development-document.md`
-3. `docs/03-full-route-spec.md`
-4. `docs/04-schema-contracts.md`
-5. `docs/05-screen-specification.md`
+1. For the development plan, see [Development Plan](docs/01-development-plan.md).
+2. For backend architecture and engineering decisions, see [Technical Development Document](docs/02-technical-development-document.md).
+3. For all API endpoints and behaviors, see [Full Route Spec](docs/03-full-route-spec.md).
+4. For request/response models and enums, see [Complete Schema Contracts](docs/04-schema-contracts.md).
+5. For frontend-to-backend screen mapping, see [Screen Specification](docs/05-screen-specification.md).
 
 ## Team Responsibilities
 - Backend team: API, domain logic, AI orchestration, data model, export pipeline
