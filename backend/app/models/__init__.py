@@ -1,6 +1,15 @@
 from app.models.project import Project
+from app.models.survey import QuestionOption, Survey, SurveyPublication, SurveyQuestion
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
 
-__all__ = ["User", "Workspace", "WorkspaceMember", "Project"]
-
+__all__ = [
+    "User",
+    "Workspace",
+    "WorkspaceMember",
+    "Project",
+    "Survey",
+    "SurveyQuestion",
+    "QuestionOption",
+    "SurveyPublication",
+]

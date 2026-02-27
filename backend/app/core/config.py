@@ -1,3 +1,4 @@
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +24,15 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: str | None = None
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:8000"]
     PASSWORD_RESET_URL_BASE: str = "http://localhost:3000/reset-password"
+
+    GROQ_API_KEY: str | None = Field(default=None, validation_alias=AliasChoices("GROQ_API_KEY", "GROK_API_KEY"))
+    GROQ_BASE_URL: str = Field(
+        default="https://api.groq.com/openai/v1",
+        validation_alias=AliasChoices("GROQ_BASE_URL", "GROK_BASE_URL"),
+    )
+    GROQ_MODEL_PRIMARY: str = "openai/gpt-oss-120b"
+    GROQ_MODEL_FALLBACK: str = "llama-3.1-8b-instant"
+    GROQ_TIMEOUT_SECONDS: float = 45.0
 
 
 settings = Settings()
