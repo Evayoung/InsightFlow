@@ -35,6 +35,7 @@ class Survey(Base, UUIDMixin, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[SurveyStatus] = mapped_column(Enum(SurveyStatus), nullable=False, default=SurveyStatus.draft)
     language: Mapped[str] = mapped_column(String(16), nullable=False, default="en")
+    generated_by_ai: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
 
@@ -67,4 +68,3 @@ class SurveyPublication(Base, UUIDMixin):
     status: Mapped[SurveyStatus] = mapped_column(Enum(SurveyStatus), nullable=False, default=SurveyStatus.published)
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     close_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-

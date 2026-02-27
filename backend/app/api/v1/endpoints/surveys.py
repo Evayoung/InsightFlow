@@ -346,6 +346,8 @@ def ai_generate_questions(
                 order_index=int(item.get("order", 1)),
             )
         )
+    survey.generated_by_ai = True
+    db.add(survey)
     db.commit()
     return SurveyQuestionsBundleResponse(
         questions=result.get("questions", []),
