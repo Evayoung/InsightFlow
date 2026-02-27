@@ -34,5 +34,11 @@ class Settings(BaseSettings):
     GROQ_MODEL_FALLBACK: str = "llama-3.1-8b-instant"
     GROQ_TIMEOUT_SECONDS: float = 45.0
 
+    PUBLIC_RATE_LIMIT_REQUESTS: int = 60
+    PUBLIC_RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    REPORT_EXPORT_DIR: str = "generated_reports"
+    REPORT_DOWNLOAD_TOKEN_EXPIRE_MINUTES: int = 60
+
 
 settings = Settings()

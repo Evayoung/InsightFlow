@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import require_workspace_role
+from app.api.v1.deps import enforce_public_rate_limit, require_workspace_role
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.feedback import (
@@ -39,10 +39,11 @@ from app.schemas.feedback import (
     SurveyResponseList,
     SurveyResponseOut,
 )
+from app.services.events import log_audit_event, log_usage_event
 from app.services.insights import generate_personas_for_survey, run_insight_analysis
 
 router = APIRouter()
-public_router = APIRouter()
+public_router = APIRouter(dependencies=[Depends(enforce_public_rate_limit)])
 
 
 def _get_survey_or_404(db: Session, survey_id: UUID) -> Survey:
@@ -150,6 +151,7 @@ def submit_public_response(
     # Auto-trigger an insight run for latest responses.
     run = InsightRun(survey_id=survey.id, status=InsightRunStatus.queued)
     db.add(run)
+    log_usage_event(db, event_name="response.submitted", payload={"survey_id": str(survey.id)})
     db.commit()
     db.refresh(run)
     background_tasks.add_task(run_insight_analysis, run.id)
@@ -209,6 +211,22 @@ def run_insights(
     require_workspace_role(db, user, project.workspace_id, WorkspaceRole.editor)
     run = InsightRun(survey_id=survey_id, status=InsightRunStatus.queued)
     db.add(run)
+    log_audit_event(
+        db,
+        action="insights.run",
+        entity_type="insight_run",
+        entity_id=str(run.id),
+        actor_user_id=user.id,
+        workspace_id=project.workspace_id,
+        metadata={"survey_id": str(survey_id)},
+    )
+    log_usage_event(
+        db,
+        event_name="insights.run.requested",
+        user_id=user.id,
+        workspace_id=project.workspace_id,
+        payload={"survey_id": str(survey_id)},
+    )
     db.commit()
     db.refresh(run)
     background_tasks.add_task(run_insight_analysis, run.id)

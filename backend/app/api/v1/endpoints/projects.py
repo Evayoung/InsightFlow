@@ -11,6 +11,7 @@ from app.models.project import Project
 from app.models.user import User
 from app.models.workspace import WorkspaceRole
 from app.schemas.project import ProjectCreateRequest, ProjectListResponse, ProjectResponse, ProjectUpdateRequest
+from app.services.events import log_audit_event, log_usage_event
 
 router = APIRouter()
 
@@ -31,6 +32,23 @@ def create_project(
         created_by=user.id,
     )
     db.add(project)
+    db.flush()
+    log_audit_event(
+        db,
+        action="project.create",
+        entity_type="project",
+        entity_id=str(project.id),
+        actor_user_id=user.id,
+        workspace_id=workspace_id,
+        metadata={"name": project.name},
+    )
+    log_usage_event(
+        db,
+        event_name="project.created",
+        user_id=user.id,
+        workspace_id=workspace_id,
+        payload={"project_id": str(project.id)},
+    )
     db.commit()
     db.refresh(project)
     return ProjectResponse.model_validate(project)

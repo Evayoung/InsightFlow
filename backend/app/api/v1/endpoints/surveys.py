@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.v1.deps import require_workspace_role
+from app.api.v1.deps import enforce_public_rate_limit, require_workspace_role
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.project import Project
@@ -32,10 +32,11 @@ from app.schemas.survey import (
     SurveyResponse,
     SurveyUpdateRequest,
 )
+from app.services.events import log_audit_event, log_usage_event
 from app.services.llm import LLMClient, LLMServiceError, get_llm_client
 
 router = APIRouter()
-public_router = APIRouter()
+public_router = APIRouter(dependencies=[Depends(enforce_public_rate_limit)])
 
 
 def get_llm_dep() -> LLMClient:
@@ -449,6 +450,22 @@ def publish_survey(
         db.add(publication)
 
     survey.status = SurveyStatus.published
+    log_audit_event(
+        db,
+        action="survey.publish",
+        entity_type="survey",
+        entity_id=str(survey.id),
+        actor_user_id=user.id,
+        workspace_id=project.workspace_id,
+        metadata={"public_slug": publication.public_slug},
+    )
+    log_usage_event(
+        db,
+        event_name="survey.published",
+        user_id=user.id,
+        workspace_id=project.workspace_id,
+        payload={"survey_id": str(survey.id)},
+    )
     db.add(survey)
     db.commit()
     db.refresh(publication)

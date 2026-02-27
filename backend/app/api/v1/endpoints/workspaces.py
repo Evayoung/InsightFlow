@@ -19,6 +19,7 @@ from app.schemas.workspace import (
     WorkspaceResponse,
     WorkspaceUpdateRequest,
 )
+from app.services.events import log_audit_event, log_usage_event
 
 router = APIRouter()
 
@@ -40,6 +41,17 @@ def create_workspace(
         status="active",
     )
     db.add(owner_membership)
+    db.flush()
+    log_audit_event(
+        db,
+        action="workspace.create",
+        entity_type="workspace",
+        entity_id=str(workspace.id),
+        actor_user_id=user.id,
+        workspace_id=workspace.id,
+        metadata={"name": workspace.name},
+    )
+    log_usage_event(db, event_name="workspace.created", user_id=user.id, workspace_id=workspace.id)
     db.commit()
     db.refresh(workspace)
     return WorkspaceResponse.model_validate(workspace)
@@ -115,6 +127,16 @@ def invite_member(
         status="active",
     )
     db.add(member)
+    db.flush()
+    log_audit_event(
+        db,
+        action="workspace.member.invite",
+        entity_type="workspace_member",
+        entity_id=str(member.id),
+        actor_user_id=user.id,
+        workspace_id=workspace_id,
+        metadata={"invited_user_id": str(invited_user.id), "role": payload.role.value},
+    )
     db.commit()
     db.refresh(member)
     return WorkspaceMemberResponse.model_validate(member)
@@ -188,4 +210,3 @@ def remove_member(
     db.delete(member)
     db.commit()
     return None
-

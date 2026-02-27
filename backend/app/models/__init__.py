@@ -7,6 +7,7 @@ from app.models.feedback import (
     ResponseAnswer,
     SurveyResponse as SurveyResponseModel,
 )
+from app.models.hardening import AuditEvent, ExportAsset, ReportJob, UsageEvent
 from app.models.project import Project
 from app.models.survey import QuestionOption, Survey, SurveyPublication, SurveyQuestion
 from app.models.user import User
@@ -28,4 +29,8 @@ __all__ = [
     "InsightTheme",
     "InsightRecommendation",
     "Persona",
+    "ReportJob",
+    "ExportAsset",
+    "AuditEvent",
+    "UsageEvent",
 ]
