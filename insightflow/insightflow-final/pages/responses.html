@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Responses — InsightFlow</title>
+<link rel="stylesheet" href="../css/app.css"/>
+</head><body>
+<div id="root"></div>
+<div class="toast-container" id="toast-rack"></div>
+
+<div class="modal-overlay" id="modal-response">
+  <div class="modal lg">
+    <div class="modal-header"><h3 class="modal-title">Response Detail</h3><button class="modal-close" onclick="closeModal('modal-response')">✕</button></div>
+    <div class="modal-body" id="resp-detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-response')">Close</button>
+      <a href="insights.html" class="btn btn-ai">View Insights</a>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/sidebar.js"></script>
+
+<script src="../js/pages/responses.js"></script>
+</body></html>

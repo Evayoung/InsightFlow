@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Sign In — InsightFlow</title>
+<link rel="stylesheet" href="../css/app.css"/>
+<link rel="stylesheet" href="../css/login.css"/>
+</head>
+<body style="height:100%">
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-icon" style="width:40px;height:40px;border-radius:11px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <span class="logo-text" style="font-size:22px">Insight<b>Flow</b></span>
+    </div>
+
+    <div id="auth-tabs" style="display:flex;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:22px">
+      <button class="auth-tab-btn active" data-tab="login">Sign In</button>
+      <button class="auth-tab-btn" data-tab="signup">Create Account</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="form-login">
+      <div id="auth-error" class="auth-error" style="display:none">
+        <span>⚠</span><span id="error-msg"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="color:rgba(255,255,255,.6)">Email address</label>
+        <div style="position:relative">
+          <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.3)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </span>
+          <input class="auth-input" id="login-email" type="email" placeholder="you@company.com" autocomplete="email"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="color:rgba(255,255,255,.6)">Password</label>
+        <div style="position:relative">
+          <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.3)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <input class="auth-input" id="login-pw" type="password" placeholder="••••••••" autocomplete="current-password"/>
+        </div>
+      </div>
+      <button class="auth-btn" id="btn-login">Sign in</button>
+      <p style="text-align:center;font-size:12px;color:rgba(255,255,255,.3);margin-top:14px">
+        <a href="#" style="color:#38bdf8" id="btn-forgot">Forgot password?</a>
+      </p>
+    </div>
+
+    <!-- SIGNUP FORM -->
+    <div id="form-signup" style="display:none">
+      <div id="signup-error" class="auth-error" style="display:none">
+        <span>⚠</span><span id="signup-error-msg"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="color:rgba(255,255,255,.6)">Full name</label>
+        <input class="auth-input" id="su-name" type="text" placeholder="Jordan Kim" style="padding-left:13px" autocomplete="name"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="color:rgba(255,255,255,.6)">Work email</label>
+        <div style="position:relative">
+          <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.3)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </span>
+          <input class="auth-input" id="su-email" type="email" placeholder="you@company.com"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="color:rgba(255,255,255,.6)">Password <span style="font-weight:400;color:rgba(255,255,255,.3)">(8+ chars)</span></label>
+        <div style="position:relative">
+          <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.3)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <input class="auth-input" id="su-pw" type="password" placeholder="Min 8 characters"/>
+        </div>
+      </div>
+      <button class="auth-btn" id="btn-signup">Create account</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-rack"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/pages/login.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Workspaces — InsightFlow</title>
+<link rel="stylesheet" href="../css/app.css"/>
+</head><body>
+<div id="root"></div>
+<div class="toast-container" id="toast-rack"></div>
+
+<!-- New Workspace Modal -->
+<div class="modal-overlay" id="modal-new-ws">
+  <div class="modal">
+    <div class="modal-header"><h3 class="modal-title">Create Workspace</h3><button class="modal-close" onclick="closeModal('modal-new-ws')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Workspace Name *</label><input class="form-input" id="new-ws-name" placeholder="e.g. Acme Marketing"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new-ws')">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-ws">Create Workspace</button>
+    </div>
+  </div>
+</div>
+
+<!-- Invite Member Modal -->
+<div class="modal-overlay" id="modal-invite">
+  <div class="modal">
+    <div class="modal-header"><h3 class="modal-title">Invite Team Member</h3><button class="modal-close" onclick="closeModal('modal-invite')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Email Address *</label><input class="form-input" id="invite-email" type="email" placeholder="colleague@company.com"/></div>
+      <div class="form-group"><label class="form-label">Role</label>
+        <select class="form-select" id="invite-role"><option value="admin">Admin</option><option value="editor" selected>Editor</option><option value="viewer">Viewer</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-invite')">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-invite">Send Invite</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/sidebar.js"></script>
+
+<script src="../js/pages/workspaces.js"></script>
+</body></html>
