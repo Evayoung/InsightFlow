@@ -24,6 +24,31 @@ class FakeLLM:
         }
 
 
+class AliasTypeLLM:
+    def generate_json(self, **kwargs):
+        return {
+            "questions": [
+                {
+                    "type": "scale",
+                    "text": "Overall, how would you rate your happiness now compared to when you were single?",
+                    "required": True,
+                    "order": 1,
+                    "options": [],
+                },
+                {
+                    "type": "multiple_choice",
+                    "text": "Which areas of life changed the most after marriage?",
+                    "required": True,
+                    "order": 2,
+                    "options": [
+                        {"label": "Finances", "value": "finances", "order": 1},
+                        {"label": "Routine", "value": "routine", "order": 2},
+                    ],
+                },
+            ]
+        }
+
+
 def register_and_login(client, email: str, password: str, full_name: str) -> dict:
     reg = client.post("/api/v1/auth/register", json={"email": email, "password": password, "full_name": full_name})
     assert reg.status_code == 201
@@ -70,6 +95,27 @@ def test_survey_authoring_and_public_flow(client):
     assert ai_generate.status_code == 200
     assert len(ai_generate.json()["questions"]) >= 3
 
+    detail = client.get(
+        f"/api/v1/surveys/{survey_id}",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert detail.status_code == 200
+    assert len(detail.json()["questions"]) == 3
+
+    rerun = client.post(
+        f"/api/v1/surveys/{survey_id}/ai-generate",
+        json={"goal": "Validate onboarding", "question_count": 3, "tone": "neutral"},
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert rerun.status_code == 200
+
+    detail_again = client.get(
+        f"/api/v1/surveys/{survey_id}",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert detail_again.status_code == 200
+    assert len(detail_again.json()["questions"]) == 3
+
     bias = client.post(
         f"/api/v1/surveys/{survey_id}/bias-check",
         json={},
@@ -101,3 +147,55 @@ def test_survey_authoring_and_public_flow(client):
 
     client.app.dependency_overrides.clear()
 
+
+def test_publish_requires_at_least_one_question(client):
+    tokens, _, project_id = setup_project(client)
+
+    create = client.post(
+        f"/api/v1/projects/{project_id}/surveys",
+        json={"title": "Empty Survey", "goal": "Validate publish guard"},
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert create.status_code == 201
+    survey_id = create.json()["id"]
+
+    publish = client.post(
+        f"/api/v1/surveys/{survey_id}/publish",
+        json={},
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert publish.status_code == 409
+    assert "Add at least one question" in publish.json()["detail"]
+
+
+def test_ai_generate_normalizes_alias_question_types(client):
+    client.app.dependency_overrides[get_llm_dep] = lambda: AliasTypeLLM()
+    tokens, _, project_id = setup_project(client)
+
+    create = client.post(
+        f"/api/v1/projects/{project_id}/surveys",
+        json={"title": "Marriage Survey", "goal": "Understand post-marriage happiness"},
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert create.status_code == 201
+    survey_id = create.json()["id"]
+
+    ai_generate = client.post(
+        f"/api/v1/surveys/{survey_id}/ai-generate",
+        json={"goal": "Understand post-marriage happiness", "question_count": 3, "tone": "neutral"},
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert ai_generate.status_code == 200
+    questions = ai_generate.json()["questions"]
+    assert questions[0]["type"] == "rating"
+    assert questions[1]["type"] == "multi_choice"
+
+    detail = client.get(
+        f"/api/v1/surveys/{survey_id}",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert detail.status_code == 200
+    assert detail.json()["questions"][0]["type"] == "rating"
+    assert detail.json()["questions"][1]["type"] == "multi_choice"
+
+    client.app.dependency_overrides.clear()

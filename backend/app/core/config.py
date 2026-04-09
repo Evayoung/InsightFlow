@@ -1,15 +1,24 @@
+from pathlib import Path
+
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    model_config = SettingsConfigDict(
+        env_file=str(ENV_FILE),
+        case_sensitive=True,
+        env_ignore_empty=True,
+    )
 
     APP_NAME: str = "InsightFlow Backend"
     APP_SLUG: str = "insightflow-backend"
     APP_VERSION: str = "0.1.0"
 
-    DATABASE_URL: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/insightflow"
+    DATABASE_URL: str = "postgresql+psycopg2://postgres:evayoung@localhost:5433/insightflow"
 
     SECRET_KEY: str = "change-this-secret"
     ALGORITHM: str = "HS256"
@@ -21,9 +30,14 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str | None = None
     SMTP_PASSWORD: str | None = None
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+    SMTP_TIMEOUT_SECONDS: float = 20.0
     EMAILS_FROM_EMAIL: str | None = None
+    EMAILS_FROM_NAME: str = "InsightFlow"
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:8000"]
-    PASSWORD_RESET_URL_BASE: str = "http://localhost:3000/reset-password"
+    FRONTEND_APP_URL: str = "http://localhost:8010"
+    PASSWORD_RESET_URL_BASE: str = "http://localhost:8010/reset-password"
 
     GROQ_API_KEY: str | None = Field(default=None, validation_alias=AliasChoices("GROQ_API_KEY", "GROK_API_KEY"))
     GROQ_BASE_URL: str = Field(

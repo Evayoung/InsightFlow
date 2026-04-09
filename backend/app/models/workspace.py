@@ -33,3 +33,15 @@ class WorkspaceMember(Base, UUIDMixin, TimestampMixin):
     role: Mapped[WorkspaceRole] = mapped_column(Enum(WorkspaceRole), nullable=False, default=WorkspaceRole.editor)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
 
+
+class WorkspaceInvitation(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "workspace_invitations"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "email", name="uq_workspace_invitation_workspace_email"),
+    )
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    role: Mapped[WorkspaceRole] = mapped_column(Enum(WorkspaceRole), nullable=False, default=WorkspaceRole.editor)
+    invited_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")

@@ -1,8 +1,16 @@
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.core.config import settings
+
+
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+FRONTEND_DIR = PROJECT_DIR / "frontend"
 
 
 def create_app() -> FastAPI:
@@ -18,6 +26,28 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router)
+
+    if FRONTEND_DIR.exists():
+        @app.get("/", include_in_schema=False)
+        async def serve_frontend_index() -> FileResponse:
+            return FileResponse(FRONTEND_DIR / "index.html")
+
+        @app.get("/reset-password", include_in_schema=False)
+        async def serve_reset_password(request: Request) -> RedirectResponse:
+            target = "/reset-password.html"
+            if request.url.query:
+                target = f"{target}?{request.url.query}"
+            return RedirectResponse(url=target, status_code=307)
+
+        @app.get("/public/surveys/{public_slug}", include_in_schema=False)
+        async def serve_public_survey(public_slug: str) -> RedirectResponse:
+            return RedirectResponse(
+                url=f"/public-survey.html?slug={public_slug}",
+                status_code=307,
+            )
+
+        app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+
     return app
 
 

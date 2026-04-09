@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Public Survey - InsightFlow</title>
+<link rel="stylesheet" href="./assets/styles/app.css"/>
+<style>
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, rgba(0,121,193,.14), transparent 28%),
+    radial-gradient(circle at left 20%, rgba(0,69,124,.12), transparent 26%),
+    linear-gradient(180deg, #f8fbfe 0%, #edf3f8 100%);
+}
+.public-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 40px 18px;
+}
+.public-card {
+  position: relative;
+  width: min(820px, 100%);
+  background: rgba(255,255,255,.97);
+  border: 1px solid rgba(226,232,240,.9);
+  border-radius: 30px;
+  box-shadow: 0 28px 90px rgba(3,18,33,.12);
+  overflow: hidden;
+}
+.public-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 22%),
+    linear-gradient(135deg, rgba(0,121,193,.04), transparent 45%);
+  pointer-events: none;
+}
+.public-hero {
+  position: relative;
+  padding: 34px 36px 30px;
+  background:
+    radial-gradient(circle at top right, rgba(255,255,255,.18), transparent 28%),
+    linear-gradient(135deg, #00355f 0%, #00457c 38%, #0079c1 76%, #20a6dc 100%);
+  color: #fff;
+}
+.public-body {
+  position: relative;
+  padding: 28px 32px 32px;
+  background:
+    linear-gradient(180deg, rgba(243,248,252,.88) 0%, rgba(255,255,255,.98) 20%, #fff 100%);
+}
+.public-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 13px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.public-title {
+  margin: 20px 0 10px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-style: normal;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -.03em;
+}
+.public-subtitle {
+  margin: 0;
+  max-width: 620px;
+  color: rgba(255,255,255,.9);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.survey-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+.survey-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.13);
+  border: 1px solid rgba(255,255,255,.16);
+  font-size: 12px;
+  font-weight: 600;
+}
+.public-form {
+  display: grid;
+  gap: 16px;
+}
+.question-block {
+  padding: 22px 22px 20px;
+  border: 1px solid #e6edf5;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
+  box-shadow: 0 10px 30px rgba(15,23,42,.04);
+}
+.question-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.question-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(0,69,124,.1), rgba(0,121,193,.12));
+  color: #00457c;
+  font-size: 13px;
+  font-weight: 800;
+}
+.question-copy-wrap { min-width: 0; }
+.question-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a2332;
+  line-height: 1.45;
+}
+.question-copy {
+  margin: 8px 0 0;
+  color: #5b6b82;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.required-mark {
+  color: #dc2626;
+  font-weight: 800;
+}
+.choice-list {
+  display: grid;
+  gap: 10px;
+}
+.choice-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.choice-option:hover,
+.scale-option:hover {
+  border-color: rgba(0,121,193,.35);
+  box-shadow: 0 6px 18px rgba(0,121,193,.08);
+  transform: translateY(-1px);
+}
+.choice-option:focus-within,
+.scale-option:focus-within {
+  border-color: #0079c1;
+  box-shadow: 0 0 0 4px rgba(0,121,193,.12);
+}
+.choice-option:has(input:checked),
+.scale-option:has(input:checked) {
+  border-color: rgba(0,121,193,.52);
+  background: linear-gradient(180deg, rgba(0,121,193,.08), rgba(0,121,193,.04));
+  box-shadow: 0 10px 26px rgba(0,121,193,.12);
+}
+.choice-option input,
+.scale-option input {
+  margin: 0;
+  accent-color: #0079c1;
+}
+.scale-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+  gap: 10px;
+}
+.scale-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.scale-option strong {
+  font-size: 15px;
+  color: #1a2332;
+}
+.public-form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 6px;
+  padding: 18px 4px 4px;
+}
+.public-form-note {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.state-block {
+  text-align: center;
+  padding: 48px 24px;
+}
+.state-block h2 {
+  margin: 0 0 10px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-style: normal;
+  font-size: 30px;
+}
+.state-block p {
+  margin: 0 auto 20px;
+  max-width: 460px;
+  color: #64748b;
+  line-height: 1.6;
+}
+@media (max-width: 720px) {
+  .public-shell {
+    padding: 18px 10px;
+    place-items: start center;
+  }
+  .public-card {
+    border-radius: 22px;
+  }
+  .public-hero, .public-body { padding: 22px; }
+  .question-block {
+    padding: 18px 16px 16px;
+    border-radius: 16px;
+  }
+  .question-head {
+    gap: 10px;
+  }
+  .question-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .public-form-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .public-form-footer .btn {
+    width: 100%;
+  }
+  .survey-meta {
+    gap: 8px;
+  }
+  .survey-meta span {
+    width: 100%;
+    justify-content: center;
+  }
+}
+@media (max-width: 520px) {
+  .public-title {
+    font-size: 26px;
+  }
+  .public-subtitle {
+    font-size: 14px;
+  }
+  .scale-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+</style>
+</head>
+<body>
+<div class="public-shell">
+  <div class="public-card">
+    <div class="public-hero">
+      <div class="public-brand">InsightFlow Survey</div>
+      <h1 class="public-title" id="survey-title">Loading survey...</h1>
+      <p class="public-subtitle" id="survey-copy">Fetching your survey securely.</p>
+      <div class="survey-meta" id="survey-meta"></div>
+    </div>
+    <div class="public-body">
+      <div id="toast-rack" class="toast-container"></div>
+      <div id="survey-root" class="state-block">
+        <span class="spinner-dark"></span>
+        <p style="margin-top:12px">Loading survey questions...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="./assets/js/common.js"></script>
+<script src="./assets/js/pages/public-survey.js"></script>
+</body>
+</html>
+
+
+

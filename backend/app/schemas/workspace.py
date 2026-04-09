@@ -39,17 +39,17 @@ class MemberUpdateRequest(BaseModel):
 
 
 class WorkspaceMemberResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: UUID
     workspace_id: UUID
-    user_id: UUID
+    user_id: UUID | None = None
+    email: EmailStr
+    full_name: str | None = None
     role: WorkspaceRole
     status: str
-    created_at: datetime
-    updated_at: datetime
+    joined_at: datetime | None = None
+    invited_at: datetime | None = None
+    kind: str = "member"
 
 
 class WorkspaceMemberListResponse(BaseModel):
     items: list[WorkspaceMemberResponse]
-

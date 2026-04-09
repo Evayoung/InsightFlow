@@ -10,6 +10,6 @@ if __name__ == "__main__":
         port=8010,
         reload=True
     )
-
+ 
     # Deployment example (use 0.0.0.0 for external access)
     # uvicorn.run("app.main:app", host="0.0.0.0", port=10000)

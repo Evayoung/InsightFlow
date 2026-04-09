@@ -4,14 +4,14 @@ import string
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import enforce_public_rate_limit, require_workspace_role
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.project import Project
-from app.models.survey import QuestionOption, Survey, SurveyPublication, SurveyQuestion, SurveyStatus
+from app.models.survey import QuestionOption, QuestionType, Survey, SurveyPublication, SurveyQuestion, SurveyStatus
 from app.models.user import User
 from app.models.workspace import WorkspaceRole
 from app.schemas.survey import (
@@ -37,6 +37,27 @@ from app.services.llm import LLMClient, LLMServiceError, get_llm_client
 
 router = APIRouter()
 public_router = APIRouter(dependencies=[Depends(enforce_public_rate_limit)])
+
+QUESTION_TYPE_ALIASES = {
+    "choice": "single_choice",
+    "checkbox": "multi_choice",
+    "free_text": "text",
+    "likert": "rating",
+    "long_text": "text",
+    "multiple_choice": "multi_choice",
+    "multiplechoice": "multi_choice",
+    "multi_select": "multi_choice",
+    "multichoice": "multi_choice",
+    "open_ended": "text",
+    "open_text": "text",
+    "radio": "single_choice",
+    "scale": "rating",
+    "short_text": "text",
+    "textarea": "text",
+    "true_false": "yes_no",
+    "boolean": "yes_no",
+}
+SUPPORTED_QUESTION_TYPES = {item.value for item in QuestionType}
 
 
 def get_llm_dep() -> LLMClient:
@@ -88,14 +109,104 @@ def _build_question_response(db: Session, question: SurveyQuestion) -> QuestionR
     )
 
 
+def _build_survey_response(db: Session, survey: Survey) -> SurveyResponse:
+    publication = db.scalar(select(SurveyPublication).where(SurveyPublication.survey_id == survey.id))
+    return SurveyResponse(
+        id=survey.id,
+        project_id=survey.project_id,
+        title=survey.title,
+        goal=survey.goal,
+        target_audience=survey.target_audience,
+        description=survey.description,
+        status=survey.status,
+        language=survey.language,
+        generated_by_ai=survey.generated_by_ai,
+        public_slug=publication.public_slug if publication else None,
+        created_by=survey.created_by,
+        created_at=survey.created_at,
+        updated_at=survey.updated_at,
+    )
+
+
 def _survey_detail(db: Session, survey: Survey) -> SurveyDetailResponse:
     questions = db.scalars(
         select(SurveyQuestion).where(SurveyQuestion.survey_id == survey.id).order_by(SurveyQuestion.order_index.asc())
     ).all()
     return SurveyDetailResponse(
-        survey=SurveyResponse.model_validate(survey),
+        survey=_build_survey_response(db, survey),
         questions=[_build_question_response(db, q) for q in questions],
     )
+
+
+def _normalize_question_type(raw_type: str | None) -> str:
+    if not raw_type:
+        return QuestionType.text.value
+
+    normalized = raw_type.strip().lower().replace("-", "_").replace(" ", "_")
+    normalized = QUESTION_TYPE_ALIASES.get(normalized, normalized)
+    if normalized in SUPPORTED_QUESTION_TYPES:
+        return normalized
+    return QuestionType.text.value
+
+
+def _normalize_generated_question(item: dict, default_order: int) -> dict:
+    question_type = _normalize_question_type(item.get("type"))
+    text = str(item.get("text") or "").strip()
+    options = []
+    for index, option in enumerate(item.get("options", []) or [], start=1):
+        label = str(option.get("label") or option.get("value") or "").strip()
+        value = str(option.get("value") or option.get("label") or "").strip()
+        if not label and not value:
+            continue
+        options.append(
+            {
+                "label": label or value,
+                "value": value or label,
+                "order": int(option.get("order") or index),
+            }
+        )
+
+    return {
+        "type": question_type,
+        "text": text or f"Question {default_order}",
+        "description": item.get("description"),
+        "required": bool(item.get("required", True)),
+        "order": int(item.get("order") or default_order),
+        "options": options,
+    }
+
+
+def _normalize_generated_questions(items: list[dict]) -> list[dict]:
+    return [_normalize_generated_question(item, index) for index, item in enumerate(items or [], start=1)]
+
+
+def _replace_survey_questions(db: Session, survey_id: UUID, items: list[dict]) -> None:
+    existing_questions = db.scalars(select(SurveyQuestion).where(SurveyQuestion.survey_id == survey_id)).all()
+    for question in existing_questions:
+        db.query(QuestionOption).filter(QuestionOption.question_id == question.id).delete()
+        db.delete(question)
+    db.flush()
+
+    for item in _normalize_generated_questions(items):
+        question = SurveyQuestion(
+            survey_id=survey_id,
+            type=item["type"],
+            text=item.get("text", ""),
+            description=item.get("description"),
+            required=bool(item.get("required", True)),
+            order_index=int(item.get("order", 1)),
+        )
+        db.add(question)
+        db.flush()
+        for option in item.get("options", []) or []:
+            db.add(
+                QuestionOption(
+                    question_id=question.id,
+                    label=option.get("label", ""),
+                    value=option.get("value", ""),
+                    order_index=int(option.get("order", 1)),
+                )
+            )
 
 
 def _create_slug() -> str:
@@ -125,7 +236,7 @@ def create_survey(
     db.add(survey)
     db.commit()
     db.refresh(survey)
-    return SurveyResponse.model_validate(survey)
+    return _build_survey_response(db, survey)
 
 
 @router.get("/projects/{project_id}/surveys", response_model=SurveyListResponse)
@@ -141,7 +252,7 @@ def list_surveys(
     if status_filter:
         query = query.where(Survey.status == status_filter)
     items = db.scalars(query.order_by(Survey.created_at.desc())).all()
-    return SurveyListResponse(items=[SurveyResponse.model_validate(x) for x in items], count=len(items))
+    return SurveyListResponse(items=[_build_survey_response(db, x) for x in items], count=len(items))
 
 
 @router.get("/surveys/{survey_id}", response_model=SurveyDetailResponse)
@@ -179,7 +290,7 @@ def update_survey(
     db.add(survey)
     db.commit()
     db.refresh(survey)
-    return SurveyResponse.model_validate(survey)
+    return _build_survey_response(db, survey)
 
 
 @router.post("/surveys/{survey_id}/questions", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
@@ -337,21 +448,13 @@ def ai_generate_questions(
             ]
         }
 
-    for item in result.get("questions", []):
-        db.add(
-            SurveyQuestion(
-                survey_id=survey_id,
-                type=item.get("type", "text"),
-                text=item.get("text", ""),
-                required=bool(item.get("required", True)),
-                order_index=int(item.get("order", 1)),
-            )
-        )
+    generated_questions = _normalize_generated_questions(result.get("questions", []))
+    _replace_survey_questions(db, survey_id, generated_questions)
     survey.generated_by_ai = True
     db.add(survey)
     db.commit()
     return SurveyQuestionsBundleResponse(
-        questions=result.get("questions", []),
+        questions=generated_questions,
         generation_meta={"provider": "groq", "generated_at": datetime.now(UTC).isoformat()},
     )
 
@@ -432,6 +535,9 @@ def publish_survey(
     require_workspace_role(db, user, project.workspace_id, WorkspaceRole.editor)
     if survey.status not in {SurveyStatus.draft, SurveyStatus.closed}:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Survey cannot be published in current state")
+    question_count = db.scalar(select(func.count()).select_from(SurveyQuestion).where(SurveyQuestion.survey_id == survey_id))
+    if not question_count:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Add at least one question before publishing")
 
     publication = db.scalar(select(SurveyPublication).where(SurveyPublication.survey_id == survey_id))
     if not publication:
@@ -489,7 +595,7 @@ def close_survey(
     db.add(survey)
     db.commit()
     db.refresh(survey)
-    return SurveyResponse.model_validate(survey)
+    return _build_survey_response(db, survey)
 
 
 @router.post("/surveys/{survey_id}/archive", response_model=SurveyResponse)
@@ -509,7 +615,7 @@ def archive_survey(
     db.add(survey)
     db.commit()
     db.refresh(survey)
-    return SurveyResponse.model_validate(survey)
+    return _build_survey_response(db, survey)
 
 
 @public_router.get("/public/surveys/{public_slug}", response_model=PublicSurveyResponse)

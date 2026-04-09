@@ -1,4 +1,5 @@
 from datetime import timedelta
+import logging
 from urllib.parse import urlencode
 from uuid import UUID
 
@@ -18,6 +19,7 @@ from app.core.security import (
 )
 from app.db.session import get_db
 from app.models.user import User
+from app.models.workspace import WorkspaceInvitation, WorkspaceMember
 from app.schemas.auth import (
     AuthSession,
     ForgotPasswordRequest,
@@ -31,9 +33,40 @@ from app.schemas.auth import (
     UserProfile,
     VerifyResetTokenRequest,
 )
-from app.services.email import send_password_reset_email
+from app.services.email import send_password_reset_email, send_welcome_email
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _claim_workspace_invitations(db: Session, user: User) -> None:
+    invitations = db.scalars(
+        select(WorkspaceInvitation).where(
+            WorkspaceInvitation.email == user.email,
+            WorkspaceInvitation.status == "pending",
+        )
+    ).all()
+
+    for invitation in invitations:
+        existing_membership = db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == invitation.workspace_id,
+                WorkspaceMember.user_id == user.id,
+            )
+        )
+        if existing_membership:
+            db.delete(invitation)
+            continue
+
+        db.add(
+            WorkspaceMember(
+                workspace_id=invitation.workspace_id,
+                user_id=user.id,
+                role=invitation.role,
+                status="active",
+            )
+        )
+        db.delete(invitation)
 
 
 @router.post("/register", response_model=AuthSession, status_code=status.HTTP_201_CREATED)
@@ -50,6 +83,10 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> AuthSes
     db.add(user)
     db.commit()
     db.refresh(user)
+    _claim_workspace_invitations(db, user)
+    db.commit()
+    if not send_welcome_email(user.email, user.full_name):
+        logger.warning("Welcome email delivery failed for user_id=%s email=%s", user.id, user.email)
 
     tokens = TokenPair(
         access_token=create_access_token(str(user.id), timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)),
@@ -105,7 +142,8 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
         )
         query = urlencode({"token": token})
         reset_link = f"{settings.PASSWORD_RESET_URL_BASE}?{query}"
-        send_password_reset_email(user.email, reset_link)
+        if not send_password_reset_email(user.email, reset_link):
+            logger.warning("Password reset email delivery failed for user_id=%s email=%s", user.id, user.email)
 
     return ForgotPasswordResponse(message="If the account exists, a reset email has been sent.")
 

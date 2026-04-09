@@ -1,14 +1,16 @@
 from uuid import UUID
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.v1.deps import require_workspace_role
+from app.core.config import settings
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.user import User
-from app.models.workspace import Workspace, WorkspaceMember, WorkspaceRole
+from app.models.workspace import Workspace, WorkspaceInvitation, WorkspaceMember, WorkspaceRole
 from app.schemas.workspace import (
     MemberInviteRequest,
     MemberUpdateRequest,
@@ -20,8 +22,40 @@ from app.schemas.workspace import (
     WorkspaceUpdateRequest,
 )
 from app.services.events import log_audit_event, log_usage_event
+from app.services.email import send_workspace_invitation_email
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _build_member_response(member: WorkspaceMember, user: User) -> WorkspaceMemberResponse:
+    return WorkspaceMemberResponse(
+        id=member.id,
+        workspace_id=member.workspace_id,
+        user_id=member.user_id,
+        email=user.email,
+        full_name=user.full_name,
+        role=member.role,
+        status=member.status,
+        joined_at=member.created_at,
+        invited_at=member.created_at,
+        kind="member",
+    )
+
+
+def _build_invitation_response(invitation: WorkspaceInvitation) -> WorkspaceMemberResponse:
+    return WorkspaceMemberResponse(
+        id=invitation.id,
+        workspace_id=invitation.workspace_id,
+        user_id=None,
+        email=invitation.email,
+        full_name=None,
+        role=invitation.role,
+        status=invitation.status,
+        joined_at=None,
+        invited_at=invitation.created_at,
+        kind="invitation",
+    )
 
 
 @router.post("", response_model=WorkspaceResponse, status_code=status.HTTP_201_CREATED)
@@ -106,40 +140,97 @@ def invite_member(
     user: User = Depends(get_current_user),
 ) -> WorkspaceMemberResponse:
     require_workspace_role(db, user, workspace_id, WorkspaceRole.admin)
+    workspace = db.get(Workspace, workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found")
 
-    invited_user = db.scalar(select(User).where(User.email == payload.email.lower()))
-    if not invited_user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    normalized_email = payload.email.lower()
+    invited_user = db.scalar(select(User).where(User.email == normalized_email))
 
-    existing = db.scalar(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == workspace_id,
-            WorkspaceMember.user_id == invited_user.id,
+    if invited_user:
+        stale_invitation = db.scalar(
+            select(WorkspaceInvitation).where(
+                WorkspaceInvitation.workspace_id == workspace_id,
+                WorkspaceInvitation.email == normalized_email,
+            )
         )
-    )
-    if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Member already exists")
+        existing = db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == invited_user.id,
+            )
+        )
+        if existing:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Member already exists")
+        if stale_invitation:
+            db.delete(stale_invitation)
+            db.flush()
 
-    member = WorkspaceMember(
-        workspace_id=workspace_id,
-        user_id=invited_user.id,
-        role=payload.role,
-        status="active",
-    )
-    db.add(member)
-    db.flush()
-    log_audit_event(
-        db,
-        action="workspace.member.invite",
-        entity_type="workspace_member",
-        entity_id=str(member.id),
-        actor_user_id=user.id,
-        workspace_id=workspace_id,
-        metadata={"invited_user_id": str(invited_user.id), "role": payload.role.value},
-    )
+        member = WorkspaceMember(
+            workspace_id=workspace_id,
+            user_id=invited_user.id,
+            role=payload.role,
+            status="active",
+        )
+        db.add(member)
+        db.flush()
+        log_audit_event(
+            db,
+            action="workspace.member.invite",
+            entity_type="workspace_member",
+            entity_id=str(member.id),
+            actor_user_id=user.id,
+            workspace_id=workspace_id,
+            metadata={"invited_user_id": str(invited_user.id), "role": payload.role.value},
+        )
+        response_payload = _build_member_response(member, invited_user)
+    else:
+        existing_invitation = db.scalar(
+            select(WorkspaceInvitation).where(
+                WorkspaceInvitation.workspace_id == workspace_id,
+                WorkspaceInvitation.email == normalized_email,
+            )
+        )
+        if existing_invitation:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Invitation already exists")
+
+        invitation = WorkspaceInvitation(
+            workspace_id=workspace_id,
+            email=normalized_email,
+            role=payload.role,
+            invited_by_user_id=user.id,
+            status="pending",
+        )
+        db.add(invitation)
+        db.flush()
+        log_audit_event(
+            db,
+            action="workspace.member.invite_pending",
+            entity_type="workspace_invitation",
+            entity_id=str(invitation.id),
+            actor_user_id=user.id,
+            workspace_id=workspace_id,
+            metadata={"email": normalized_email, "role": payload.role.value},
+        )
+        response_payload = _build_invitation_response(invitation)
+
     db.commit()
-    db.refresh(member)
-    return WorkspaceMemberResponse.model_validate(member)
+
+    invite_link = f"{settings.FRONTEND_APP_URL.rstrip('/')}/pages/login.html"
+    invite_email = invited_user.email if invited_user else normalized_email
+    if not send_workspace_invitation_email(
+        invite_email,
+        workspace_name=workspace.name,
+        role=payload.role.value,
+        inviter_name=user.full_name,
+        app_link=invite_link,
+    ):
+        logger.warning(
+            "Workspace invite email delivery failed for workspace_id=%s email=%s",
+            workspace_id,
+            invite_email,
+        )
+    return response_payload
 
 
 @router.get("/{workspace_id}/members", response_model=WorkspaceMemberListResponse)
@@ -154,7 +245,21 @@ def list_members(
         .where(WorkspaceMember.workspace_id == workspace_id)
         .order_by(WorkspaceMember.created_at.asc())
     ).all()
-    return WorkspaceMemberListResponse(items=[WorkspaceMemberResponse.model_validate(item) for item in members])
+    invitations = db.scalars(
+        select(WorkspaceInvitation)
+        .where(WorkspaceInvitation.workspace_id == workspace_id, WorkspaceInvitation.status == "pending")
+        .order_by(WorkspaceInvitation.created_at.asc())
+    ).all()
+
+    member_items = []
+    for item in members:
+        member_user = db.get(User, item.user_id)
+        if not member_user:
+            continue
+        member_items.append(_build_member_response(item, member_user))
+
+    invitation_items = [_build_invitation_response(item) for item in invitations]
+    return WorkspaceMemberListResponse(items=member_items + invitation_items)
 
 
 @router.patch("/{workspace_id}/members/{member_id}", response_model=WorkspaceMemberResponse)
@@ -202,11 +307,22 @@ def remove_member(
             WorkspaceMember.workspace_id == workspace_id,
         )
     )
-    if not member:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
-    if member.role == WorkspaceRole.owner:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Owner membership cannot be removed")
+    if member:
+        if member.role == WorkspaceRole.owner:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Owner membership cannot be removed")
+        db.delete(member)
+        db.commit()
+        return None
 
-    db.delete(member)
+    invitation = db.scalar(
+        select(WorkspaceInvitation).where(
+            WorkspaceInvitation.id == member_id,
+            WorkspaceInvitation.workspace_id == workspace_id,
+        )
+    )
+    if not invitation:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+
+    db.delete(invitation)
     db.commit()
     return None

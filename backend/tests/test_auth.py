@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from app.core.security import create_password_reset_token
+from app.api.v1.endpoints import auth as auth_endpoints
 
 
 def test_register_login_and_me(client):
@@ -24,6 +25,25 @@ def test_register_login_and_me(client):
     me_response = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
     assert me_response.status_code == 200
     assert me_response.json()["email"] == "pm@example.com"
+
+
+def test_register_sends_welcome_email(client, monkeypatch):
+    captured = {}
+
+    def fake_send_welcome_email(email: str, full_name: str | None = None) -> bool:
+        captured["email"] = email
+        captured["full_name"] = full_name
+        return True
+
+    monkeypatch.setattr(auth_endpoints, "send_welcome_email", fake_send_welcome_email)
+
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"email": "welcome@example.com", "password": "Password123!", "full_name": "Welcome User"},
+    )
+
+    assert response.status_code == 201
+    assert captured == {"email": "welcome@example.com", "full_name": "Welcome User"}
 
 
 def test_register_rejects_weak_password(client):
@@ -72,3 +92,27 @@ def test_password_recovery_flow(client):
         json={"email": "recover@example.com", "password": "NewPassword123!"},
     )
     assert new_login.status_code == 200
+
+
+def test_password_recovery_sends_reset_email(client, monkeypatch):
+    register_payload = {
+        "email": "recovermail@example.com",
+        "password": "Password123!",
+        "full_name": "Recover Mail User",
+    }
+    reg_response = client.post("/api/v1/auth/register", json=register_payload)
+    assert reg_response.status_code == 201
+
+    captured = {}
+
+    def fake_send_password_reset_email(email: str, reset_link: str) -> bool:
+        captured["email"] = email
+        captured["reset_link"] = reset_link
+        return True
+
+    monkeypatch.setattr(auth_endpoints, "send_password_reset_email", fake_send_password_reset_email)
+
+    forgot_response = client.post("/api/v1/auth/password/forgot", json={"email": "recovermail@example.com"})
+    assert forgot_response.status_code == 200
+    assert captured["email"] == "recovermail@example.com"
+    assert "token=" in captured["reset_link"]

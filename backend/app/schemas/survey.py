@@ -100,6 +100,8 @@ class SurveyResponse(BaseModel):
     description: str | None
     status: SurveyStatus
     language: str
+    generated_by_ai: bool
+    public_slug: str | None = None
     created_by: UUID
     created_at: datetime
     updated_at: datetime
@@ -145,4 +147,3 @@ class SurveyQuestionsBundleResponse(BaseModel):
 class PublicSurveyResponse(BaseModel):
     survey: dict
     questions: list[QuestionResponse]
-
