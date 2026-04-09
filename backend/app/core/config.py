@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     SMTP_TIMEOUT_SECONDS: float = 20.0
     EMAILS_FROM_EMAIL: str | None = None
     EMAILS_FROM_NAME: str = "InsightFlow"
-    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:8000"]
+    BACKEND_CORS_ORIGINS: list[str] = []
     FRONTEND_APP_URL: str = "http://localhost:8010"
     PASSWORD_RESET_URL_BASE: str = "http://localhost:8010/reset-password"
 

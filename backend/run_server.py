@@ -1,15 +1,16 @@
 """Entry point script for running the FastAPI application with Uvicorn."""
 
+import os
+
 import uvicorn
 
+
 if __name__ == "__main__":
-    # Local development server
+    is_render = os.getenv("RENDER", "").lower() == "true"
+    port = int(os.getenv("PORT", "8010"))
     uvicorn.run(
         "app.main:app",
-        host="127.0.0.1",
-        port=8010,
-        reload=True
+        host="0.0.0.0",
+        port=port,
+        reload=not is_render,
     )
- 
-    # Deployment example (use 0.0.0.0 for external access)
-    # uvicorn.run("app.main:app", host="0.0.0.0", port=10000)

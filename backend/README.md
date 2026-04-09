@@ -68,6 +68,20 @@ Current implementation covers:
 6. Open the app:
    - `http://localhost:8010/`
 
+## Render Deploy
+- Service type: `Web Service`
+- Root directory: `backend`
+- Build command:
+  - `pip install -e .`
+- Start command:
+  - `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Pre-deploy command:
+  - `alembic upgrade head`
+- Health check path:
+  - `/health`
+- A ready-to-use Render blueprint is included at:
+  - `render.yaml`
+
 ## Environment Variables
 - `DATABASE_URL`
 - `SECRET_KEY`
@@ -89,6 +103,7 @@ Current implementation covers:
 - Current async strategy follows MVP decision: no Redis/Celery/broker.
 - Background execution uses FastAPI `BackgroundTasks` for insights and report jobs.
 - FastAPI now serves the static frontend directly in local/dev mode so UI and API can be tested from one server.
+- Because frontend and backend are served from the same FastAPI app in production, `BACKEND_CORS_ORIGINS` can be `[]` on Render unless you intentionally call the API from another origin.
 - Email verification before account activation is not implemented yet. Current auth allows immediate login after registration.
 - For Gmail SMTP:
   - try `SMTP_PORT=587`, `SMTP_USE_TLS=true`, `SMTP_USE_SSL=false` first

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: insightflow
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -e .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    preDeployCommand: alembic upgrade head
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.7
+      - key: BACKEND_CORS_ORIGINS
+        value: '[]'
